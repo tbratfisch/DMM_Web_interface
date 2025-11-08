@@ -1,0 +1,33 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# Node / web tooling
+node_modules/
+dist/
+build/
+
+# Arduino / PlatformIO
+.pio/
+*.elf
+*.bin
+*.hex
+*.map
+
+# VS Code / JetBrains
+.vscode/
+.idea/
+
+# Local data
+*.pcap
+captures/

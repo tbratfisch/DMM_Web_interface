@@ -4,7 +4,7 @@
 #include <vector>
 
 #if __has_include("customconfig.h")
-    #include "customconfig.h"
+#include "customconfig.h"
 #else
 // ===== Wi-Fi config =====
 static const char* WIFI_SSID = "";
@@ -14,15 +14,15 @@ static const char* WIFI_HOST = "multimeter-esp32";
 // ===== UART config =====
 static const int RX_PIN = 17;
 static const int TX_PIN = -1;
-static const uint32_t SNIFF_BAUD = 9600;   // set 38400 if needed
-static const uint32_t GAP_MS     = 50;     // inter-byte idle gap to close a frame (↑ from 15)
+static const uint32_t SNIFF_BAUD = 9600;  // set 38400 if needed
+static const uint32_t GAP_MS = 50;        // inter-byte idle gap to close a frame (↑ from 15)
 
 // ===== Data-enable control =====
-const int DATA_EN_PIN = 6;                 // GPIO that tells the meter to start sending
-bool dataEnabled = false;                  // tracked mirror of DATA_EN_PIN
+const int DATA_EN_PIN = 6;  // GPIO that tells the meter to start sending
+bool dataEnabled = false;   // tracked mirror of DATA_EN_PIN
 // Gate based on UART activity (leave enabled for 30 s after last byte)
 unsigned long lastRxMs = 0;
-const unsigned RX_IDLE_GRACE_MS = 30000;   // 30 s grace after last byte
+const unsigned RX_IDLE_GRACE_MS = 30000;  // 30 s grace after last byte
 #endif
 
 // ===== Web server =====
@@ -40,79 +40,87 @@ String last_bits = "";
 String last_bit_indices = "";
 
 // ===== Utilities =====
-String hexLine(const uint8_t* d, size_t n){
-  static const char HEXCHARS[]="0123456789ABCDEF";
-  String s; s.reserve(n*3);
-  for(size_t i=0;i<n;i++){
-    if(i) s+=' ';
-    uint8_t b=d[i];
-    s += HEXCHARS[b>>4]; s += HEXCHARS[b & 0x0F];
+String hexLine(const uint8_t* d, size_t n) {
+  static const char HEXCHARS[] = "0123456789ABCDEF";
+  String s;
+  s.reserve(n * 3);
+  for (size_t i = 0; i < n; i++) {
+    if (i) s += ' ';
+    uint8_t b = d[i];
+    s += HEXCHARS[b >> 4];
+    s += HEXCHARS[b & 0x0F];
   }
   return s;
 }
 
-static inline uint8_t bitReverseByte(uint8_t x){
-  x = (x>>4) | (x<<4);
-  x = ((x & 0xCC)>>2) | ((x & 0x33)<<2);
-  x = ((x & 0xAA)>>1) | ((x & 0x55)<<1);
+static inline uint8_t bitReverseByte(uint8_t x) {
+  x = (x >> 4) | (x << 4);
+  x = ((x & 0xCC) >> 2) | ((x & 0x33) << 2);
+  x = ((x & 0xAA) >> 1) | ((x & 0x55) << 1);
   return x;
 }
 
 // 7-seg dictionary
-char digitFrom7Seg(const String& sig){
-  if(sig=="1110111") return '0';
-  if(sig=="0010010") return '1';
-  if(sig=="1011101") return '2';
-  if(sig=="1011011") return '3';
-  if(sig=="0111010") return '4';
-  if(sig=="1101011") return '5';
-  if(sig=="1101111") return '6';
-  if(sig=="1010010") return '7';
-  if(sig=="1111111") return '8';
-  if(sig=="1111011") return '9';
-  if(sig=="1111110") return 'A';
-  if(sig=="0000111") return 'u';
-  if(sig=="0101101") return 't';
-  if(sig=="0001111") return 'o';
-  if(sig=="0100101") return 'L';
-  if(sig=="1101101") return 'E';
-  if(sig=="1101100") return 'F';
-  if(sig=="0001000") return '-';
+char digitFrom7Seg(const String& sig) {
+  if (sig == "1110111") return '0';
+  if (sig == "0010010") return '1';
+  if (sig == "1011101") return '2';
+  if (sig == "1011011") return '3';
+  if (sig == "0111010") return '4';
+  if (sig == "1101011") return '5';
+  if (sig == "1101111") return '6';
+  if (sig == "1010010") return '7';
+  if (sig == "1111111") return '8';
+  if (sig == "1111011") return '9';
+  if (sig == "1111110") return 'A';
+  if (sig == "0000111") return 'u';
+  if (sig == "0101101") return 't';
+  if (sig == "0001111") return 'o';
+  if (sig == "0100101") return 'L';
+  if (sig == "1101101") return 'E';
+  if (sig == "1101100") return 'F';
+  if (sig == "0001000") return '-';
   return '?';
 }
 
-String decodeValueFromPreparedBits(const String& bits){
-  auto safeSlice = [&](int a,int b)->String{
-    if(a<0 || b>(int)bits.length() || a>=b) return "";
-    return bits.substring(a,b);
+String decodeValueFromPreparedBits(const String& bits) {
+  auto safeSlice = [&](int a, int b) -> String {
+    if (a < 0 || b > (int)bits.length() || a >= b) return "";
+    return bits.substring(a, b);
   };
   String out;
-  if(bits.length()>28 && bits[28]=='1') out += '-';
-  auto oneDigit = [&](int start)->char{
-    String seg = safeSlice(start, start+8);
-    if(seg.length()<8) return '?';
-    String sig; sig.reserve(7);
+  if (bits.length() > 28 && bits[28] == '1') out += '-';
+  auto oneDigit = [&](int start) -> char {
+    String seg = safeSlice(start, start + 8);
+    if (seg.length() < 8) return '?';
+    String sig;
+    sig.reserve(7);
     // signal = seg[3] seg[2] seg[7] seg[6] seg[1] seg[5] seg[4]
-    sig += seg[3]; sig += seg[2]; sig += seg[7]; sig += seg[6];
-    sig += seg[1]; sig += seg[5]; sig += seg[4];
+    sig += seg[3];
+    sig += seg[2];
+    sig += seg[7];
+    sig += seg[6];
+    sig += seg[1];
+    sig += seg[5];
+    sig += seg[4];
     return digitFrom7Seg(sig);
   };
-  if(bits.length() >= 36) out += oneDigit(28);
-  if(bits.length() > 36 && bits[36]=='1') out += '.';
-  if(bits.length() >= 44) out += oneDigit(36);
-  if(bits.length() > 44 && bits[44]=='1') out += '.';
-  if(bits.length() >= 52) out += oneDigit(44);
-  if(bits.length() > 52 && bits[52]=='1') out += '.';
-  if(bits.length() >= 60) out += oneDigit(52);
-  if(out.length()==0) out = "0";
+  if (bits.length() >= 36) out += oneDigit(28);
+  if (bits.length() > 36 && bits[36] == '1') out += '.';
+  if (bits.length() >= 44) out += oneDigit(36);
+  if (bits.length() > 44 && bits[44] == '1') out += '.';
+  if (bits.length() >= 52) out += oneDigit(44);
+  if (bits.length() > 52 && bits[52] == '1') out += '.';
+  if (bits.length() >= 60) out += oneDigit(52);
+  if (out.length() == 0) out = "0";
   return out;
 }
 
 // Basic units/flags (adjust indices if your model differs)
-String decodeUnitsFlags(const String& bits){
+String decodeUnitsFlags(const String& bits) {
   String fn, un;
-  auto addIf = [&](int idx, const char* label, bool isFn=false){
-    if(idx < (int)bits.length() && idx>=0 && bits[idx]=='1'){
+  auto addIf = [&](int idx, const char* label, bool isFn = false) {
+    if (idx < (int)bits.length() && idx >= 0 && bits[idx] == '1') {
       (isFn ? fn : un) += String(label) + " ";
     }
   };
@@ -125,18 +133,24 @@ String decodeUnitsFlags(const String& bits){
   addIf(77, "m");
   addIf(80, "Auto");
   addIf(25, "HOLD", true);
-  String out = un; out.trim();
-  String f = fn;  f.trim();
-  if(f.length()){ if(out.length()) out += "  "; out += f; }
+  String out = un;
+  out.trim();
+  String f = fn;
+  f.trim();
+  if (f.length()) {
+    if (out.length()) out += "  ";
+    out += f;
+  }
   return out;
 }
 
 // Convert PLAIN UART frame -> prepared bits (bit-reverse each byte)
-String makePreparedBits(const std::vector<uint8_t>& plain){
-  String bits; bits.reserve(plain.size()*8);
-  for(size_t i=0;i<plain.size();++i){
+String makePreparedBits(const std::vector<uint8_t>& plain) {
+  String bits;
+  bits.reserve(plain.size() * 8);
+  for (size_t i = 0; i < plain.size(); ++i) {
     uint8_t v = bitReverseByte(plain[i]);
-    for(int b=7;b>=0;--b) bits += ((v>>b)&1)?'1':'0';
+    for (int b = 7; b >= 0; --b) bits += ((v >> b) & 1) ? '1' : '0';
   }
   return bits;
 }
@@ -200,16 +214,16 @@ setInterval(tick, 333); tick();
 </body></html>
 )HTML";
 // ===== HTTP handlers =====
-void handleIndex(){
+void handleIndex() {
   server.send(200, "text/html; charset=utf-8", FPSTR(INDEX_HTML));
 }
 
-void handleApiLatest(){
+void handleApiLatest() {
   String json = "{\"value\":\"" + latest_value + "\",\"unit\":\"" + latest_units + "\",\"functions\":\"" + latest_funcs + "\"}";
   server.send(200, "application/json; charset=utf-8", json);
 }
 
-void handleApiDebug(){
+void handleApiDebug() {
   String json = "{";
   json += "\"frame_hex\":\"" + last_frame_hex + "\",";
   json += "\"bits\":\"" + last_bits + "\",";
@@ -219,29 +233,29 @@ void handleApiDebug(){
 }
 
 // ===== Decode a finished frame =====
-void decodeAndStore(const std::vector<uint8_t>& plain){
-  if(plain.size() < 8) return;
+void decodeAndStore(const std::vector<uint8_t>& plain) {
+  if (plain.size() < 8) return;
   last_frame_hex = hexLine(plain.data(), plain.size());
   String bits = makePreparedBits(plain);
   last_bits = bits;
   String indices;
-  for(int i=0; i<bits.length(); ++i){
-    if(bits[i] == '1'){
-      if(indices.length()) indices += ' ';
+  for (int i = 0; i < bits.length(); ++i) {
+    if (bits[i] == '1') {
+      if (indices.length()) indices += ' ';
       indices += String(i);
     }
   }
   last_bit_indices = indices;
   latest_value = decodeValueFromPreparedBits(bits);
   latest_units = decodeUnitsFlags(bits);
-  latest_funcs = ""; // extend if desired
+  latest_funcs = "";  // extend if desired
 }
 
 // ===== Frame flush/parse =====
-void flushFrame(){
-  if(frame.empty()) return;
+void flushFrame() {
+  if (frame.empty()) return;
   // Optional: only accept frames that look real (start with 0x5A 0xA5)
-  if(frame.size() >= 2 && frame[0] == 0x5A && frame[1] == 0xA5){
+  if (frame.size() >= 2 && frame[0] == 0x5A && frame[1] == 0xA5) {
     decodeAndStore(frame);
   }
   frame.clear();
@@ -251,46 +265,49 @@ void flushFrame(){
 wl_status_t lastWifiStatus = WL_DISCONNECTED;
 unsigned long lastWifiCheckMs = 0;
 uint8_t reconnectAttempts = 0;
-void beginWifi(){
+void beginWifi() {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(WIFI_HOST);
-  WiFi.setSleep(false);                         // keep radio awake (stability)
+  WiFi.setSleep(false);  // keep radio awake (stability)
   WiFi.setAutoReconnect(true);
-  WiFi.setTxPower(WIFI_POWER_19_5dBm);          // max TX power for range
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);  // max TX power for range
   // Optional static IP (uncomment & set if DHCP is slow on your router)
   // IPAddress ip(192,168,1,123), gw(192,168,1,1), sn(255,255,255,0), dns(1,1,1,1);
   // WiFi.config(ip, gw, sn, dns);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("WiFi connecting");
-  uint32_t t0=millis();
-  while(WiFi.status()!=WL_CONNECTED && millis()-t0<12000){
-    delay(250); Serial.print(".");
+  uint32_t t0 = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 12000) {
+    delay(250);
+    Serial.print(".");
   }
   Serial.println();
-  if(WiFi.status()==WL_CONNECTED){
-    Serial.print("WiFi OK  IP: "); Serial.println(WiFi.localIP());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("WiFi OK  IP: ");
+    Serial.println(WiFi.localIP());
     reconnectAttempts = 0;
-  }else{
+  } else {
     Serial.println("WiFi not connected (will keep retrying).");
   }
   lastWifiStatus = WiFi.status();
 }
 
-void wifiWatchdog(){
+void wifiWatchdog() {
   unsigned long now = millis();
-  if(now - lastWifiCheckMs < 2000) return;  // check every 2s
+  if (now - lastWifiCheckMs < 2000) return;  // check every 2s
   lastWifiCheckMs = now;
   wl_status_t st = WiFi.status();
-  if(st == WL_CONNECTED){
-    if(lastWifiStatus != WL_CONNECTED){
-      Serial.print("WiFi reconnected. IP: "); Serial.println(WiFi.localIP());
+  if (st == WL_CONNECTED) {
+    if (lastWifiStatus != WL_CONNECTED) {
+      Serial.print("WiFi reconnected. IP: ");
+      Serial.println(WiFi.localIP());
     }
     reconnectAttempts = 0;
-  }else{
+  } else {
     static unsigned long lastKick = 0;
     unsigned long backoff = 1000UL * (2 + min<uint8_t>(reconnectAttempts, 7) * 2);
-    if(now - lastKick >= backoff){
+    if (now - lastKick >= backoff) {
       Serial.println("WiFi down → reconnect()");
       WiFi.reconnect();
       reconnectAttempts++;
@@ -300,7 +317,7 @@ void wifiWatchdog(){
   lastWifiStatus = st;
 }
 
-void setup(){
+void setup() {
   Serial.begin(115200);
   delay(50);
   // Keep meter enabled by default
@@ -309,7 +326,7 @@ void setup(){
   dataEnabled = true;
   // Initialize timestamps so gating doesn't immediately disable at boot
   unsigned long now = millis();
-  lastRxMs   = now;
+  lastRxMs = now;
   lastByteMs = now;
   beginWifi();
   // Web server
@@ -323,21 +340,21 @@ void setup(){
   Serial.println("UART sniffer started (GPIO17 @ 9600 8N1)");
 }
 
-void loop(){
+void loop() {
   // Keep Wi-Fi alive
   wifiWatchdog();
   // Serve HTTP
   server.handleClient();
   // Read UART and frame by gap
-  while(SniffUart.available()>0){
+  while (SniffUart.available() > 0) {
     int v = SniffUart.read();
-    if(v<0) break;
+    if (v < 0) break;
     frame.push_back((uint8_t)v);
     lastByteMs = millis();
-    lastRxMs   = lastByteMs;                 // record meter activity
-    if(frame.size()>512){ flushFrame(); }    // safety
+    lastRxMs = lastByteMs;                     // record meter activity
+    if (frame.size() > 512) { flushFrame(); }  // safety
   }
-  if(!frame.empty() && (millis()-lastByteMs)>=GAP_MS){
+  if (!frame.empty() && (millis() - lastByteMs) >= GAP_MS) {
     flushFrame();
   }
   // ---- Activity-based gating for DATA_EN (optional) ----

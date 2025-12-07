@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <vector>
+#include <ArduinoOTA.h>  // For enabling over the air updates
 
 #if __has_include("customconfig.h")
 #include "customconfig.h"
@@ -338,6 +339,7 @@ void setup() {
   // UART from the meter
   SniffUart.begin(SNIFF_BAUD, SERIAL_8N1, RX_PIN, TX_PIN, /*invert=*/false);
   Serial.println("UART sniffer started (GPIO17 @ 9600 8N1)");
+  ArduinoOTA.begin();  // Starts OTA
 }
 
 void loop() {
@@ -366,6 +368,7 @@ void loop() {
     digitalWrite(DATA_EN_PIN, LOW);
     dataEnabled = false;
   }
+  ArduinoOTA.handle();  // Handles OTA
   // Yield to TCP/IP stack
   delay(1);
 }

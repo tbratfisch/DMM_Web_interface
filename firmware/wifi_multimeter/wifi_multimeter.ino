@@ -3,6 +3,9 @@
 #include <WebServer.h>
 #include <vector>
 
+#if __has_include("customconfig.h")
+    #include "customconfig.h"
+#else
 // ===== Wi-Fi config =====
 static const char* WIFI_SSID = "";
 static const char* WIFI_PASS = "";
@@ -20,6 +23,7 @@ bool dataEnabled = false;                  // tracked mirror of DATA_EN_PIN
 // Gate based on UART activity (leave enabled for 30 s after last byte)
 unsigned long lastRxMs = 0;
 const unsigned RX_IDLE_GRACE_MS = 30000;   // 30 s grace after last byte
+#endif
 
 // ===== Web server =====
 WebServer server(80);
